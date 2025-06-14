@@ -2,11 +2,11 @@ import asyncio
 from datetime import datetime
 import sqlite3
 
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from decouple import config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -37,13 +37,16 @@ async def cmd_start_3(message: Message, state: FSMContext) -> None:
 
 
 
+inline_kb_edit = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='изменить!', callback_data='product_edit')]
+    ])
 @dp.message(F.text, CustomState.add)
 async def add_product(message: Message, state: FSMContext) -> None:
     parts = message.text.split()
-    if len(parts) != 3:
+    if len(parts) < 3:
         await message.answer('неправильный формат! пример: сметана 21 03')
         return
-    name, day, month = parts[0], parts[1], parts[2]
+    name, day, month = parts[:-2], parts[-2], parts[-1]
     try:
         datetime_object = datetime(datetime.now().year, int(month), int(day))
     except ValueError:
@@ -51,17 +54,22 @@ async def add_product(message: Message, state: FSMContext) -> None:
         return
     timestamp = datetime.timestamp(datetime_object)
 
-    cursor.execute("INSERT INTO products VALUES (?, ?)", (name, timestamp))
+    cursor.execute("INSERT INTO products VALUES (?, ?)", (' '.join(name), timestamp))
     connection.commit()
-    await message.answer(f'Продукт добавлен! {message.text}')
+    await message.answer(f'Продукт добавлен! {message.text}', reply_markup=inline_kb_edit)
+
+
+@dp.callback_query(F.data == "product_edit")
+async def process_callback_product_edit(callback_query: types.CallbackQuery):
+    await callback_query.answer()
+    await callback_query.message.answer('Нажата кнопка "изменить!"')
 
 
 
 
 @dp.message(F.text)
-async def default(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    await message.answer(f'чееее, {message.from_user.first_name} {data.get("add")}')
+async def default(message: Message) -> None:
+    await message.answer(f'окак')
 
 
 async def main() -> None:
