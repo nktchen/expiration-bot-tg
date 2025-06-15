@@ -79,29 +79,28 @@ async def process_callback_product_edit(callback_query: types.CallbackQuery):
 
 
 async def daily_check_db(bot: Bot):
-    now = datetime.now().timestamp()
+    now = datetime.now()
     deadline_days = [1, 3, 5]
     warnings = {days: [] for days in deadline_days}
-    tomorrow = (datetime.now() + timedelta(days=1)).timestamp()
-    three_days = (datetime.now() + timedelta(days=3)).timestamp()
-    five_days = (datetime.now() + timedelta(days=5)).timestamp()
+
 
     cursor.execute("SELECT name, date FROM products")
-    exp_products_tommorow = []
-    exp_products_three_days = []
-    exp_products_five_days = []
-    for name, date in cursor.fetchall():
-        if now <= date <= tomorrow:
-            exp_products_tommorow.append(name)
-        elif now <= date <= three_days:
-            exp_products_three_days.append(name)
-        elif now <= date <= five_days:
-            exp_products_five_days.append(name)
+    for name, date_ts in cursor.fetchall():
+        exp_date = datetime.fromtimestamp(date_ts)
+        days_left = (exp_date.date() - now.date()).days
+        if days_left in warnings:
+            warnings[days_left].append(name)
+    if not any(warnings.values()):
+        return
+
+    messages = [
+        f"через {days_left} дней истекает срок:\n" +
+        '\n'.join(f"• {name}" for name in names)
+        for days_left, names in warnings.items() if names
+    ]
+    text = '\n\n'.join(messages)
     for user in users:
-        await bot.send_message(user, f"срок годности продукта 'asd' истекает через три дня!")
-
-
-
+        await bot.send_message(user, text)
 
 
 @dp.message(F.text)
