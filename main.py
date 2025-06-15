@@ -1,6 +1,7 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 import sqlite3
+from typing import List, Tuple
 
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command, CommandStart
@@ -13,13 +14,12 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 users = [config("user1"), config("user2")]
 scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
 dp = Dispatcher()
-connection = sqlite3.connect('products.db')
+connection = sqlite3.connect('products.db', check_same_thread=False)
 cursor = connection.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, name TEXT, date INTEGER)")
 
 class CustomState(StatesGroup):
     add = State()
-    watch = State()
 
 
 @dp.message(CommandStart())
@@ -39,7 +39,7 @@ async def command_add_handler(message: Message, state: FSMContext) -> None:
 
 
 @dp.message(F.text, CustomState.add)
-async def add_product(message: Message, state: FSMContext) -> None:
+async def add_product(message: Message) -> None:
     parts = message.text.split()
     if len(parts) < 3:
         await message.answer('неправильный формат! пример: сметана 21 03')
@@ -65,7 +65,7 @@ async def add_product(message: Message, state: FSMContext) -> None:
 async def daily_check_db(bot: Bot):
     now = datetime.now()
     deadline_days = [1, 3, 5]
-    expired: [tuple] = []
+    expired: List[Tuple[int, str, float]] = []
     warnings = {days: [] for days in deadline_days}
 
 
@@ -122,6 +122,22 @@ async def process_callback_product_delete(callback_query: types.CallbackQuery):
     await callback_query.message.edit_text("этот продукт был удалён")
 
 
+@dp.message(Command('stop'))
+async def command_stop_handler(message: Message, state: FSMContext) -> None:
+    await message.answer('выхожу из режима добавления...')
+    await state.clear()
+
+@dp.message(Command('get_all'))
+async def command_get_all_handler(message: Message) -> None:
+    products: List[Tuple[str, datetime]] = []
+    cursor.execute("SELECT name, date FROM products")
+    for name, date_ts in cursor.fetchall():
+        exp_date = datetime.fromtimestamp(date_ts)
+        products.append((name, exp_date))
+    products = sorted(products, key=lambda product: product[1], reverse=True)
+    await message.answer('\n'.join([f'{name} : {date.date()}' for name, date in products]))
+
+
 
 @dp.message(F.text)
 async def default(message: Message) -> None:
@@ -132,7 +148,7 @@ async def default(message: Message) -> None:
 async def main() -> None:
     scheduler.start()
     bot = Bot(token=config("TOKEN"))
-    scheduler.add_job(daily_check_db, "interval", seconds=15, args=[bot])
+    scheduler.add_job(daily_check_db, "cron", hour=10, minute=0, args=[bot])
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
