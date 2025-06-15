@@ -115,7 +115,7 @@ async def daily_check_db(bot: Bot):
         await bot.send_message(user, warnings_msg)
         for product_id, name, date_ts in expired:
             inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text='удалить!', callback_data=f'product_exp_delete_{product_id}')]
+                [InlineKeyboardButton(text='удалить!', callback_data=f'product_delete_{product_id}')]
             ])
             await bot.send_message(user,  f"испортилось: {name} {datetime.fromtimestamp(date_ts).date}\n", reply_markup=inline_kb_delete)
 
