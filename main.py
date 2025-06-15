@@ -137,6 +137,12 @@ async def command_get_all_handler(message: Message) -> None:
     products = sorted(products, key=lambda product: product[1], reverse=True)
     await message.answer('\n'.join([f'{name} : {date.date()}' for name, date in products]))
 
+@dp.message(Command('help'))
+async def help_handler(message: Message):
+    await message.answer("/add — добавить продукт\n"
+                         "/stop — выйти из режима добавления\n"
+                         "/get_all — показать список\n"
+                         "/help — помощь")
 
 
 @dp.message(F.text)
