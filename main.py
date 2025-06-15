@@ -62,22 +62,6 @@ async def add_product(message: Message, state: FSMContext) -> None:
     await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_delete)
 
 
-@dp.callback_query(F.data.startswith('product_delete_'))
-async def process_callback_product_delete(callback_query: types.CallbackQuery):
-    product_id_str = callback_query.data.replace('product_delete_', '')
-    try:
-        product_id = int(product_id_str)
-    except ValueError:
-        await callback_query.answer("ошибка: неверный ID")
-        return
-
-    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
-    connection.commit()
-
-    await callback_query.answer("продукт удалён")
-    await callback_query.message.edit_text("этот продукт был удалён")
-
-
 async def daily_check_db(bot: Bot):
     now = datetime.now()
     deadline_days = [1, 3, 5]
@@ -117,7 +101,26 @@ async def daily_check_db(bot: Bot):
             inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text='удалить!', callback_data=f'product_delete_{product_id}')]
             ])
-            await bot.send_message(user,  f"испортилось: {name} {datetime.fromtimestamp(date_ts).date}\n", reply_markup=inline_kb_delete)
+            await bot.send_message(user,
+                                   f"{name} испортилось {datetime.fromtimestamp(date_ts).date()}\n",
+                                   reply_markup=inline_kb_delete)
+
+
+@dp.callback_query(F.data.startswith('product_delete_'))
+async def process_callback_product_delete(callback_query: types.CallbackQuery):
+    product_id_str = callback_query.data.replace('product_delete_', '')
+    try:
+        product_id = int(product_id_str)
+    except ValueError:
+        await callback_query.answer("ошибка: неверный ID")
+        return
+
+    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+    connection.commit()
+
+    await callback_query.answer("продукт удалён")
+    await callback_query.message.edit_text("этот продукт был удалён")
+
 
 
 @dp.message(F.text)
@@ -129,7 +132,7 @@ async def default(message: Message) -> None:
 async def main() -> None:
     scheduler.start()
     bot = Bot(token=config("TOKEN"))
-    scheduler.add_job(daily_check_db, "cron", hours=10, minutes=00, args=[bot])
+    scheduler.add_job(daily_check_db, "interval", seconds=15, args=[bot])
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
