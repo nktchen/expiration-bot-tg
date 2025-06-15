@@ -36,6 +36,10 @@ async def command_add_handler(message: Message, state: FSMContext) -> None:
     await message.answer('чтобы выйти используй команду /stop')
     await state.set_state(CustomState.add)
 
+@dp.message(Command('stop'), CustomState.add)
+async def command_stop_handler(message: Message, state: FSMContext) -> None:
+    await message.answer('выхожу из режима добавления...')
+    await state.clear()
 
 @dp.message(F.text, CustomState.add)
 async def add_product(message: Message) -> None:
@@ -59,12 +63,6 @@ async def add_product(message: Message) -> None:
         [InlineKeyboardButton(text='удалить!', callback_data=f'product_delete_{product_id}')]
     ])
     await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_delete)
-
-
-@dp.message(F.text == '/stop', CustomState.add)
-async def command_stop_handler(message: Message, state: FSMContext) -> None:
-    await message.answer('выхожу из режима добавления...')
-    await state.clear()
 
 
 @dp.message(Command('get_all'))
