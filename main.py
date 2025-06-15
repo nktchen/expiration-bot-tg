@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlite3
 
 from aiogram import Bot, Dispatcher, F, types
@@ -10,7 +10,7 @@ from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from decouple import config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-
+users = [config("user1"), config("user2")]
 scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
 dp = Dispatcher()
 connection = sqlite3.connect('products.db')
@@ -30,7 +30,7 @@ async def command_start_handler(message: Message) -> None:
 
 
 @dp.message(Command('add'))
-async def cmd_start_3(message: Message, state: FSMContext) -> None:
+async def command_add_handler(message: Message, state: FSMContext) -> None:
     await message.answer('перехожу в режим добавления...')
     await message.answer('присылай мне по одному товару в сообщении в формате "ПРОДУКТ ДЕНЬ МЕСЯЦ"')
     await state.set_state(CustomState.add)
@@ -78,6 +78,30 @@ async def process_callback_product_edit(callback_query: types.CallbackQuery):
     await callback_query.message.edit_text("этот продукт был удалён")
 
 
+async def daily_check_db(bot: Bot):
+    now = datetime.now().timestamp()
+    deadline_days = [1, 3, 5]
+    warnings = {days: [] for days in deadline_days}
+    tomorrow = (datetime.now() + timedelta(days=1)).timestamp()
+    three_days = (datetime.now() + timedelta(days=3)).timestamp()
+    five_days = (datetime.now() + timedelta(days=5)).timestamp()
+
+    cursor.execute("SELECT name, date FROM products")
+    exp_products_tommorow = []
+    exp_products_three_days = []
+    exp_products_five_days = []
+    for name, date in cursor.fetchall():
+        if now <= date <= tomorrow:
+            exp_products_tommorow.append(name)
+        elif now <= date <= three_days:
+            exp_products_three_days.append(name)
+        elif now <= date <= five_days:
+            exp_products_five_days.append(name)
+    for user in users:
+        await bot.send_message(user, f"срок годности продукта 'asd' истекает через три дня!")
+
+
+
 
 
 @dp.message(F.text)
@@ -85,9 +109,12 @@ async def default(message: Message) -> None:
     await message.answer(f'окак')
 
 
+
 async def main() -> None:
     scheduler.start()
     bot = Bot(token=config("TOKEN"))
+    scheduler.add_job(daily_check_db, "interval", seconds=10, args=[bot])
+
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
