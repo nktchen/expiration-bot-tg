@@ -93,9 +93,15 @@ async def daily_check_db(bot: Bot):
     if not any(warnings.values()):
         return
 
+    num_to_correct_day = {
+        1: 'день',
+        3: 'дня',
+        5: 'дней',
+    }
+
     messages = [
-        f"через {days_left} дней истекает срок:\n" +
-        '\n'.join(f"• {name}" for name in names)
+        f"через {days_left} {num_to_correct_day[days_left]} истекает срок:\n" +
+        '\n'.join(name for name in names)
         for days_left, names in warnings.items() if names
     ]
     text = '\n\n'.join(messages)
@@ -112,7 +118,7 @@ async def default(message: Message) -> None:
 async def main() -> None:
     scheduler.start()
     bot = Bot(token=config("TOKEN"))
-    scheduler.add_job(daily_check_db, "interval", seconds=10, args=[bot])
+    scheduler.add_job(daily_check_db, "cron", hours=10, minutes=00, args=[bot])
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
