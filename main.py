@@ -15,7 +15,7 @@ scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
 dp = Dispatcher()
 connection = sqlite3.connect('products.db')
 cursor = connection.cursor()
-cursor.execute("CREATE TABLE IF NOT EXISTS products (name TEXT, date INTEGER)")
+cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, name TEXT, date INTEGER)")
 
 class CustomState(StatesGroup):
     add = State()
@@ -37,9 +37,7 @@ async def cmd_start_3(message: Message, state: FSMContext) -> None:
 
 
 
-inline_kb_edit = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='изменить!', callback_data='product_edit')]
-    ])
+
 @dp.message(F.text, CustomState.add)
 async def add_product(message: Message, state: FSMContext) -> None:
     parts = message.text.split()
@@ -54,15 +52,30 @@ async def add_product(message: Message, state: FSMContext) -> None:
         return
     timestamp = datetime.timestamp(datetime_object)
 
-    cursor.execute("INSERT INTO products VALUES (?, ?)", (' '.join(name), timestamp))
+    cursor.execute("INSERT INTO products (name, date) VALUES (?, ?)", (' '.join(name), timestamp))
+    product_id = cursor.lastrowid
     connection.commit()
-    await message.answer(f'Продукт добавлен! {message.text}', reply_markup=inline_kb_edit)
+
+    inline_kb_edit = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='удалить!', callback_data=f'product_edit_{product_id}')]
+    ])
+    await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_edit)
 
 
-@dp.callback_query(F.data == "product_edit")
+@dp.callback_query(F.data.startswith('product_edit_'))
 async def process_callback_product_edit(callback_query: types.CallbackQuery):
-    await callback_query.answer()
-    await callback_query.message.answer('Нажата кнопка "изменить!"')
+    product_id_str = callback_query.data.replace('product_edit_', '')
+    try:
+        product_id = int(product_id_str)
+    except ValueError:
+        await callback_query.answer("ошибка: неверный ID")
+        return
+
+    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+    connection.commit()
+
+    await callback_query.answer("продукт удалён")
+    await callback_query.message.edit_text("этот продукт был удалён")
 
 
 
