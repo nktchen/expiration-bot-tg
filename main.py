@@ -61,7 +61,7 @@ async def add_product(message: Message) -> None:
     await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_delete)
 
 
-@dp.message(F.data == '/stop', CustomState.add)
+@dp.message(F.text == '/stop', CustomState.add)
 async def command_stop_handler(message: Message, state: FSMContext) -> None:
     await message.answer('выхожу из режима добавления...')
     await state.clear()
