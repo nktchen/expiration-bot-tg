@@ -149,7 +149,7 @@ async def help_handler(message: Message):
 
 @dp.message(F.text)
 async def default(message: Message) -> None:
-    await message.answer(f'окак')
+    await message.answer(f'окак. я не понял. /help')
 
 
 
