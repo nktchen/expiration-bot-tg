@@ -13,6 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 users = [config("user1"), config("user2")]
 scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
+bot = Bot(token=config("TOKEN"))
 dp = Dispatcher()
 connection = sqlite3.connect('products.db', check_same_thread=False)
 cursor = connection.cursor()
@@ -33,6 +34,7 @@ async def command_start_handler(message: Message) -> None:
 async def command_add_handler(message: Message, state: FSMContext) -> None:
     await message.answer('перехожу в режим добавления...')
     await message.answer('присылай мне по одному товару в сообщении в формате "ПРОДУКТ ДЕНЬ МЕСЯЦ"')
+    await message.answer('чтобы выйти используй команду /stop')
     await state.set_state(CustomState.add)
 
 
@@ -153,7 +155,6 @@ async def default(message: Message) -> None:
 
 async def main() -> None:
     scheduler.start()
-    bot = Bot(token=config("TOKEN"))
     scheduler.add_job(daily_check_db, "cron", hour=10, minute=0, args=[bot])
 
     await bot.delete_webhook(drop_pending_updates=True)
