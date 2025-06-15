@@ -136,6 +136,9 @@ async def command_get_all_handler(message: Message) -> None:
     for name, date_ts in cursor.fetchall():
         exp_date = datetime.fromtimestamp(date_ts)
         products.append((name, exp_date))
+    if any(products):
+        await message.answer('нет продуктов!')
+
     products = sorted(products, key=lambda product: product[1], reverse=True)
     await message.answer('\n'.join([f'{name} : {date.date()}' for name, date in products]))
 
