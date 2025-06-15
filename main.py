@@ -56,15 +56,15 @@ async def add_product(message: Message, state: FSMContext) -> None:
     product_id = cursor.lastrowid
     connection.commit()
 
-    inline_kb_edit = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='удалить!', callback_data=f'product_edit_{product_id}')]
+    inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='удалить!', callback_data=f'product_delete_{product_id}')]
     ])
-    await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_edit)
+    await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_delete)
 
 
-@dp.callback_query(F.data.startswith('product_edit_'))
-async def process_callback_product_edit(callback_query: types.CallbackQuery):
-    product_id_str = callback_query.data.replace('product_edit_', '')
+@dp.callback_query(F.data.startswith('product_delete_'))
+async def process_callback_product_delete(callback_query: types.CallbackQuery):
+    product_id_str = callback_query.data.replace('product_delete_', '')
     try:
         product_id = int(product_id_str)
     except ValueError:
@@ -81,15 +81,20 @@ async def process_callback_product_edit(callback_query: types.CallbackQuery):
 async def daily_check_db(bot: Bot):
     now = datetime.now()
     deadline_days = [1, 3, 5]
+    expired: [tuple] = []
     warnings = {days: [] for days in deadline_days}
 
 
-    cursor.execute("SELECT name, date FROM products")
-    for name, date_ts in cursor.fetchall():
+    cursor.execute("SELECT id, name, date FROM products")
+    for product_id, name, date_ts in cursor.fetchall():
         exp_date = datetime.fromtimestamp(date_ts)
         days_left = (exp_date.date() - now.date()).days
+
         if days_left in warnings:
             warnings[days_left].append(name)
+        if days_left < 0:
+            expired.append((product_id, name, date_ts))
+
     if not any(warnings.values()):
         return
 
@@ -99,14 +104,20 @@ async def daily_check_db(bot: Bot):
         5: 'дней',
     }
 
-    messages = [
+    warnings = [
         f"через {days_left} {num_to_correct_day[days_left]} истекает срок:\n" +
         '\n'.join(name for name in names)
         for days_left, names in warnings.items() if names
     ]
-    text = '\n\n'.join(messages)
+    warnings_msg = '\n\n'.join(warnings)
+
     for user in users:
-        await bot.send_message(user, text)
+        await bot.send_message(user, warnings_msg)
+        for product_id, name, date_ts in expired:
+            inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text='удалить!', callback_data=f'product_exp_delete_{product_id}')]
+            ])
+            await bot.send_message(user,  f"испортилось: {name} {datetime.fromtimestamp(date_ts).date}\n", reply_markup=inline_kb_delete)
 
 
 @dp.message(F.text)
