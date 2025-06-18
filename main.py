@@ -26,7 +26,8 @@ class CustomState(StatesGroup):
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
     await message.answer("привет! здесь ты можешь добавить продукты, которые ты покупаешь в магазине, "
-                         "а я пришлю тебе уведомление, когда срок годности продукта начнет истекать")
+                         "а я пришлю тебе уведомление, когда срок годности продукта начнет истекать\n"
+                         "напиши /add и введи продукт со сроком годности, например сметана 20 06")
 
 
 @dp.message(Command('add'))
@@ -65,19 +66,37 @@ async def add_product(message: Message) -> None:
     await message.answer(f'продукт добавлен! {message.text}', reply_markup=inline_kb_delete)
 
 
+def get_all_products() -> list[tuple[int, str, datetime]]:
+    products: List[Tuple[int, str, datetime]] = []
+    cursor.execute("SELECT id, name, date FROM products")
+    for product_id, name, date_ts in cursor.fetchall():
+        exp_date = datetime.fromtimestamp(date_ts)
+        products.append((product_id, name, exp_date))
+    return products
+
 @dp.message(Command('get_all'))
 async def command_get_all_handler(message: Message) -> None:
-    products: List[Tuple[str, datetime]] = []
-    cursor.execute("SELECT name, date FROM products")
-    for name, date_ts in cursor.fetchall():
-        exp_date = datetime.fromtimestamp(date_ts)
-        products.append((name, exp_date))
+    products: List[Tuple[int, str, datetime]] = get_all_products()
     if not products:
         await message.answer('нет продуктов!')
         return
 
-    products = sorted(products, key=lambda product: product[1], reverse=True)
+    products = sorted(products, key=lambda product: product[2], reverse=True)
     await message.answer('\n'.join([f'{name} : {date.date()}' for name, date in products]))
+
+
+@dp.message(Command('delete'))
+async def command_get_all_handler(message: Message) -> None:
+    products: List[Tuple[int, str, datetime]] = get_all_products()
+    if not products:
+        await message.answer('нет продуктов!')
+        return
+
+    inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f'удалить {product[1]} - {product[2]}!', callback_data=f'product_delete_{product[0]}')]
+        for product in products
+    ])
+
 
 
 @dp.message(Command('help'))
@@ -85,6 +104,7 @@ async def help_handler(message: Message):
     await message.answer("/add — добавить продукт\n"
                          "/stop — выйти из режима добавления\n"
                          "/get_all — показать список\n"
+                         "/delete - удалить продукт\n"
                          "/help — помощь")
 
 
@@ -107,7 +127,7 @@ async def process_callback_product_delete(callback_query: types.CallbackQuery):
     connection.commit()
 
     await callback_query.answer("продукт удалён")
-    await callback_query.message.edit_text("этот продукт был удалён")
+    await callback_query.message.edit_text(f"продукт {product_id} был удален")
 
 
 async def daily_check_db(bot: Bot):
