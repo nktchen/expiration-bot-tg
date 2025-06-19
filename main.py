@@ -130,8 +130,6 @@ async def process_callback_product_delete(callback_query: types.CallbackQuery):
     connection.commit()
 
     await callback_query.answer("продукт удалён")
-    if callback_query.message.text and "удалить" in callback_query.message.text.lower():
-        return # если обработчик вызван из /delete - тогда ничего не меняем
     await callback_query.message.edit_text(f"продукт {product_id} был удален")
 
 
