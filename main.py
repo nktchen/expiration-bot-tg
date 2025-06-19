@@ -138,6 +138,7 @@ async def daily_check_db(bot: Bot):
     deadline_days = [1, 3, 5]
     expired: List[Tuple[int, str, float]] = []
     warnings = {days: [] for days in deadline_days}
+    today_expiring = []
 
 
     cursor.execute("SELECT id, name, date FROM products")
@@ -147,7 +148,9 @@ async def daily_check_db(bot: Bot):
 
         if days_left in warnings:
             warnings[days_left].append(name)
-        if days_left < 0:
+        elif days_left == 0:
+            today_expiring.append(name)
+        elif days_left < 0:
             expired.append((product_id, name, date_ts))
 
     if not any(warnings.values()):
@@ -164,6 +167,9 @@ async def daily_check_db(bot: Bot):
         '\n'.join(name for name in names)
         for days_left, names in warnings.items() if names
     ]
+    if today_expiring:
+        today_text = "сегодня истекает срок годности:\n" + '\n'.join(today_expiring)
+        warnings.insert(0, today_text)
     warnings_msg = '\n\n'.join(warnings)
 
     for user in users:
