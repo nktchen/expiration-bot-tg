@@ -81,7 +81,7 @@ async def command_get_all_handler(message: Message) -> None:
         await message.answer('нет продуктов!')
         return
 
-    products = sorted(products, key=lambda product: product[2], reverse=True)
+    products = sorted(products, key=lambda product: product[2])
     await message.answer('\n'.join([f'{name} : {date.date()}' for _, name, date in products]))
 
 
