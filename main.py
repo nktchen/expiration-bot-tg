@@ -82,7 +82,8 @@ async def command_get_all_handler(message: Message) -> None:
         return
 
     products = sorted(products, key=lambda product: product[2], reverse=True)
-    await message.answer('\n'.join([f'{name} : {date.date()}' for name, date in products]))
+    await message.answer('\n'.join([f'{name} : {date.date()}' for _, name, date in products]))
+
 
 
 @dp.message(Command('delete'))
@@ -93,9 +94,11 @@ async def command_get_all_handler(message: Message) -> None:
         return
 
     inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f'удалить {product[1]} - {product[2]}!', callback_data=f'product_delete_{product[0]}')]
-        for product in products
+        [InlineKeyboardButton(text=f'удалить {name} - {date.date()}!', callback_data=f'product_delete_{product_id}')]
+        for product_id, name, date in products
     ])
+    await message.answer("выберите продукт для удаления:", reply_markup=inline_kb_delete)
+
 
 
 
