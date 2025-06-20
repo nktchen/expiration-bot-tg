@@ -21,6 +21,7 @@ cursor.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, nam
 
 class CustomState(StatesGroup):
     add = State()
+    delete = State()
 
 
 @dp.message(CommandStart())
@@ -32,6 +33,7 @@ async def command_start_handler(message: Message) -> None:
 
 @dp.message(Command('add'))
 async def command_add_handler(message: Message, state: FSMContext) -> None:
+    await state.clear()
     await message.answer('перехожу в режим добавления...')
     await message.answer('присылай мне по одному товару в сообщении в формате "ПРОДУКТ ДЕНЬ МЕСЯЦ"')
     await message.answer('чтобы выйти используй команду /stop')
@@ -42,7 +44,7 @@ async def command_stop_handler(message: Message, state: FSMContext) -> None:
     await message.answer('выхожу из режима добавления...')
     await state.clear()
 
-@dp.message(F.text, CustomState.add)
+@dp.message(~F.text.startswith('/'), CustomState.add)
 async def add_product(message: Message) -> None:
     parts = message.text.split()
     if len(parts) < 3:
@@ -75,7 +77,8 @@ def get_all_products() -> list[tuple[int, str, datetime]]:
     return products
 
 @dp.message(Command('get_all'))
-async def command_get_all_handler(message: Message) -> None:
+async def command_get_all_handler(message: Message, state: FSMContext) -> None:
+    await state.clear()
     products: List[Tuple[int, str, datetime]] = get_all_products()
     if not products:
         await message.answer('нет продуктов!')
@@ -87,7 +90,8 @@ async def command_get_all_handler(message: Message) -> None:
 
 
 @dp.message(Command('delete'))
-async def command_get_all_handler(message: Message) -> None:
+async def command_delete_handler(message: Message, state: FSMContext) -> None:
+    await state.set_state(CustomState.delete)
     products: List[Tuple[int, str, datetime]] = get_all_products()
     if not products:
         await message.answer('нет продуктов!')
@@ -118,7 +122,7 @@ async def default(message: Message) -> None:
 
 
 @dp.callback_query(F.data.startswith('product_delete_'))
-async def process_callback_product_delete(callback_query: types.CallbackQuery):
+async def process_callback_product_delete(callback_query: types.CallbackQuery, state: FSMContext):
     product_id_str = callback_query.data.replace('product_delete_', '')
     try:
         product_id = int(product_id_str)
@@ -130,7 +134,11 @@ async def process_callback_product_delete(callback_query: types.CallbackQuery):
     connection.commit()
 
     await callback_query.answer("продукт удалён")
+    if state == CustomState.delete:
+        return
     await callback_query.message.edit_text(f"продукт {product_id} был удален")
+
+
 
 
 async def daily_check_db(bot: Bot):
