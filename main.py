@@ -134,7 +134,18 @@ async def process_callback_product_delete(callback_query: types.CallbackQuery, s
     connection.commit()
 
     await callback_query.answer("продукт удалён")
-    if state == CustomState.delete:
+    if await state.get_state() == CustomState.delete:
+        products: List[Tuple[int, str, datetime]] = get_all_products()
+        if not products:
+            await callback_query.message.edit_text('нет продуктов!')
+            return
+
+        inline_kb_delete = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f'удалить {name} - {date.date()}!',
+                                  callback_data=f'product_delete_{product_id}')]
+            for product_id, name, date in products
+        ])
+        await callback_query.message.edit_text("выберите продукт для удаления:", reply_markup=inline_kb_delete)
         return
     await callback_query.message.edit_text(f"продукт {product_id} был удален")
 
